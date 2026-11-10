@@ -86,8 +86,23 @@ stores and measured %(measured)d. Findings: %(tally)s.</p>
     return _page("iKestrel brief", body)
 
 
+def _linkage_rows(L):
+    if not L:
+        return "<tr><td colspan='5'>Not measured.</td></tr>"
+    out = []
+    for e in sorted(L["edges"], key=lambda e: (e["space"], e["a"], e["b"])):
+        ov = "not measured" if not e["measured"] else "%d" % e["overlap"]
+        out.append("<tr><td>%s</td><td><code>%s</code></td><td><code>%s</code></td><td>%s</td><td>%s / %s</td></tr>"
+                   % (E(e["space"]), E(e["a"]), E(e["b"]), E(ov), E(str(e["a_size"])), E(str(e["b_size"]))))
+    return "".join(out)
+
+
 def technical(d):
     M = {m["id"]: m for m in d["measurements"]}
+    L = d.get("linkage") or {}
+    M["linkage.bridge"] = {"id": "linkage.bridge", "title": "Graph people reachable from phone history through handles",
+                           "measured": (L.get("bridge") or {}).get("phone_history_to_graph_people") is not None,
+                           "value": (L.get("bridge") or {}).get("phone_history_to_graph_people"), "groups": None}
     cov_rows = "".join(
         "<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td><td>%d of %d</td><td>%s</td></tr>"
         % (E(c["group"]), E(c["path"]), E(c["sensitivity"]), E(c["status"]), c["measured"], c["measurements"],
@@ -97,7 +112,9 @@ def technical(d):
     meas = "".join("<tr><td><code>%s</code></td><td>%s</td><td>%s</td></tr>" % (E(m["id"]), E(m["title"]), _val(m))
                    for m in d["measurements"])
     sqls = "".join("<h4><code>%s</code> (%s)</h4><pre>%s</pre>" % (E(m["id"]), E(m["store"]), E(m["sql"] or "not run"))
-                   for m in d["measurements"])
+                   for m in d["measurements"] if not m["id"].startswith("linkage."))
+    sqls += "".join("<h4>linkage: %s key in <code>%s</code></h4><pre>%s</pre>" % (E(s["space"]), E(s["store"]), E(s["sql"]))
+                    for s in L.get("sql", []))
     scope = "".join("<tr><td><code>%s</code></td><td>%d</td><td><code>%s</code></td></tr>"
                     % (E(s["file"]), s["bytes"], E(s["sha256"])) for s in d["scope"])
     gaps = "".join("<li><code>%s</code>: %s</li>" % (E(g["store"]), E(g["reason"])) for g in d["gaps"]) or "<li>None.</li>"
@@ -115,6 +132,10 @@ when it reads a WAL, and they hold no rows.</p>
 <table><tr><th>Group</th><th>Store</th><th>Sensitivity</th><th>Status</th><th>Measured</th><th>Reason</th></tr>%(cov)s</table>
 <h3>Stores on disk this version does not yet catalogue</h3><ul>%(extra)s</ul>
 <h2>3. Findings</h2>%(findings)s
+<h2>3a. How the stores join</h2>
+<p>Overlap counts between identifier sets. The identifiers themselves are never shown. Entity ids are drawn
+as a hub on graph.db. Graph people reachable from the phone's history through handles: %(bridge)s.</p>
+<table><tr><th>Key</th><th>Store</th><th>Store</th><th>Shared ids</th><th>Sizes</th></tr>%(link)s</table>
 <h2>4. All measurements</h2>
 <table><tr><th>Id</th><th>What</th><th>Value</th></tr>%(meas)s</table>
 <h2>5. Watchlist</h2><p>Counts of handles containing each term. What matched is never shown.</p><ul>%(watch)s</ul>
@@ -125,5 +146,6 @@ when it reads a WAL, and they hold no rows.</p>
 """ % {"ver": E(d["version"]), "gen": E(d["generated"]), "mode": E(d["mode"]), "root": E(d["root"]),
        "scope": scope or "<tr><td colspan='3'>Hashes not computed.</td></tr>", "cov": cov_rows, "extra": extra,
        "findings": _findings_list(d["findings"], True, M), "meas": meas, "watch": watch, "gaps": gaps,
-       "open": "".join("<li>%s</li>" % E(q) for q in d["open"]), "cat": cat, "sqls": sqls}
+       "open": "".join("<li>%s</li>" % E(q) for q in d["open"]), "cat": cat, "sqls": sqls,
+       "link": _linkage_rows(L), "bridge": E(str((L.get("bridge") or {}).get("phone_history_to_graph_people", "not measured")))}
     return _page("iKestrel technical report", body)

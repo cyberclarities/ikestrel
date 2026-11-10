@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iKestrel connection map</title><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/map.css"></head>
+<body>
+<header><h1>Connection map</h1><p>How the stores join. Counts of shared identifiers only; no identifier is ever sent to this page.</p>
+<p><a href="/">Back to findings</a></p></header>
+<main class="mapmain">
+<p id="bridge" class="bridge">Reading the stores…</p>
+<div class="controls" id="controls">
+  <fieldset><legend>Join keys</legend><div id="spaces"></div></fieldset>
+  <label><input type="checkbox" id="hideIsolated" checked> Hide stores with no joins</label>
+  <label><input type="checkbox" id="hideZero"> Hide joins with zero overlap</label>
+  <button id="relayout" type="button">Re-run layout</button>
+</div>
+<div class="mapwrap">
+  <svg id="map" role="img" aria-labelledby="mapTitle mapDesc" viewBox="0 0 1000 680">
+    <title id="mapTitle">Store connection map</title>
+    <desc id="mapDesc">Stores are circles sized by how many identifiers they hold. Lines join stores that share identifiers, styled by key type and thickened by overlap. The same data is in the table below.</desc>
+    <g id="edges"></g><g id="nodes"></g><g id="labels"></g>
+  </svg>
+  <aside id="panel" class="panel" aria-live="polite"><h2>Details</h2><p>Click a store or a line.</p></aside>
+</div>
+<div class="legend" id="legend"></div>
+<section><h2>Every join, as a table</h2><div class="scroll"><table id="edgeTable"></table></div></section>
+</main>
+<script src="/static/map.js"></script>
+</body></html>

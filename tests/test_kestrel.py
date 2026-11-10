@@ -54,6 +54,15 @@ class Kestrel(unittest.TestCase):
         self.assertEqual(self.g("rel.confident")["friend"], 1)
         self.assertEqual(self.d["watch"], {"quartermain.test": 1})
 
+    def test_linkage(self):
+        L = self.d["linkage"]
+        self.assertEqual(L["bridge"]["phone_history_to_graph_people"], 1)
+        e = {(x["space"], x["a"], x["b"]): x for x in L["edges"]}
+        self.assertEqual(e[("entity", "entityTagging", "graph")]["overlap"], 2)
+        self.assertEqual(e[("handle", "internalViews", "siriRemembers")]["overlap"], 1)
+        self.assertFalse(e[("contact", "graph", "siriResolver")]["measured"])  # resolver store absent
+        self.assertIn("K-13", {f["id"] for f in self.d["findings"]})
+
     def test_unknown_app_is_withheld(self):
         apps = self.g("comms.by_app")
         self.assertNotIn("com.secretcorp.tool", apps)
@@ -100,6 +109,11 @@ class Kestrel(unittest.TestCase):
             r = urllib.request.urlopen(base + "/api/summary?t=" + token)
             self.assertEqual(r.status, 200)
             self.assertIn("default-src 'none'", r.headers["Content-Security-Policy"])
+            for path in ("/map", "/api/linkage", "/static/map.js"):
+                self.assertEqual(urllib.request.urlopen(base + path + "?t=" + token).status, 200)
+            body = urllib.request.urlopen(base + "/api/linkage?t=" + token).read().decode()
+            for s in make_fixture.SECRETS:
+                self.assertNotIn(s, body, s)
         finally:
             p.terminate(); p.wait(5); p.stdout.close(); p.stderr.close()
 

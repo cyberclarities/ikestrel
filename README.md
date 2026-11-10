@@ -61,6 +61,30 @@ python3 server.py --copy ~/IP-snapshot
 newest writes, and a reader that skips it reads stale data. On a copy, FileVault is
 reported as not measured, because a copy says nothing about the Mac it came from.
 
+## The connection map
+
+Open **Connection map** from the main page. It shows how the stores join, measured as overlaps
+between identifier sets. The identifiers stay on the server for the length of one request; the
+page gets store names and counts, nothing else.
+
+Five keys tie the stores together:
+
+| Key | What it is | What it tells you |
+|---|---|---|
+| Entity id | The graph's own id for a person, place, app or organization | About seventeen stores key on it, so it's drawn as a hub on `graph.db` |
+| Contact UUID | The Contacts record id | It differs between devices, so phone history matches poorly here |
+| Phone or email | Normalized handles | The bridge. Phone history joins to people on this Mac through it |
+| Face cluster | A Photos face-cluster id | Ties Photos to the graph |
+| Device id | Another device synced to this Mac | Ties the Siri stores to the pipeline's stream log |
+
+Click a store for what it holds and every join it has. Click a line for the overlap and the share
+of each side. Drag stores to rearrange them. Toggle keys to see one join at a time. The same data
+is in a table under the map, and in section 3a of the technical report with its SQL.
+
+The map is also where finding K-13 comes from. Contact ids don't line up between a phone and a
+Mac. Phone numbers and email addresses do, so a phone's synced history attaches to names, faces
+and relationship scores on the Mac anyway.
+
 ## Findings
 
 | Id | Finding | Severity |
@@ -77,6 +101,7 @@ reported as not measured, because a copy says nothing about the Mac it came from
 | K-10 | HealthKit is a trusted source in the pipeline | Note |
 | K-11 | Organization terms appear among people's handles | Medium |
 | K-12 | FileVault is off | High |
+| K-13 | Phone history joins to named people on this Mac | High |
 
 Severity is a judgment, and it's written down in `kestrel/findings.py` so it can be argued
 with. K-03 exists on purpose. Siri keeps who and when, not what was said, and a brief that

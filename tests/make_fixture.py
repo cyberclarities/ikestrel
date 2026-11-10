@@ -8,7 +8,7 @@ import json
 import os
 import sqlite3
 
-SECRETS = ["Zebulon Quartermain", "+15550100777", "zeb@quartermain.test", "77 Fictional Lane",
+SECRETS = ["Zebulon Quartermain", "+15550100777", "555) 010-0777", "nobody@elsewhere.test", "5550100777", "zeb@quartermain.test", "77 Fictional Lane",
            "Hidden Clinic WiFi", "Juniper Ashgrove", "juniper@ashgrove.test", "com.secretcorp.tool"]
 
 TRIPLE = ("subject INTEGER, predicate TEXT, relationshipId INTEGER, relationshipPredicate TEXT, "
@@ -54,7 +54,9 @@ def build(root):
     r.executemany("insert into entities values (?,?,?,?)", [
         (1, "p1", "Person", json.dumps({"name": "Zebulon Quartermain"})),
         (2, "p2", "Person", json.dumps({"name": "Juniper Ashgrove"})),
-        (3, "m1", "Message", json.dumps({"identifier": "m1"}))])
+        (3, "m1", "Message", json.dumps({"identifier": "m1"})),
+        (4, "+1 (555) 010-0777", "PersonHandle", json.dumps({"type": "phone"})),
+        (5, "nobody@elsewhere.test", "PersonHandle", json.dumps({"type": "email"}))])
     r.executemany("insert into interactionEntities values (?,?,?)",
                   [(1, 1, "recipients"), (2, 1, "recipients"), (3, 1, "recipients"), (4, 2, "recipients")])
     r.commit()

@@ -3,7 +3,7 @@
 import datetime
 import os
 
-from . import catalog, db, findings, live, measure, stores
+from . import catalog, db, findings, linkage, live, measure, stores
 from .version import VERSION
 
 
@@ -51,7 +51,8 @@ def run(watch_terms=None, hashes=False):
         M = measure.by_id(results)
         watch = measure.watchlist(watch_terms or [])
         lc = live.checks()
-        F, open_q = findings.evaluate(M, lc, watch)
+        L = linkage.run()
+        F, open_q = findings.evaluate(M, lc, watch, L)
         cov, extra = coverage(results)
         scope = []
         if hashes:
@@ -64,7 +65,7 @@ def run(watch_terms=None, hashes=False):
             "generated": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
             "measurements": results, "findings": F, "open": open_q,
             "coverage": cov, "uncatalogued": extra, "gaps": db.gaps(),
-            "watch": watch, "live": lc, "scope": scope,
+            "watch": watch, "live": lc, "scope": scope, "linkage": L,
             "catalog": [{"category": c, "prefixes": p} for c, p in catalog.CATEGORIES],
         }
     finally:

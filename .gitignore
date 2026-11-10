@@ -1,5 +1,6 @@
 watchlist.txt
 docs/schema_snapshot.json
+linkage_sample.json
 __pycache__/
 *.pyc
 .DS_Store

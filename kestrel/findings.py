@@ -20,7 +20,7 @@ def _g(M, mid):
     return None if not r or not r["measured"] else (r["groups"] or {})
 
 
-def evaluate(M, live_checks=None, watch=None):
+def evaluate(M, live_checks=None, watch=None, linkage=None):
     F, open_q = [], []
 
     def add(fid, sev, title, evidence, impact, action):
@@ -130,6 +130,16 @@ def evaluate(M, live_checks=None, watch=None):
             ["pipe.health_trust"],
             "%d trust weights name HealthKit. No Health records were measured in these stores." % ht,
             "Check the phone's Health sharing settings if health data is in scope.")
+
+    # 13. the bridge from phone history to people on this Mac
+    reach = ((linkage or {}).get("bridge") or {}).get("phone_history_to_graph_people")
+    if reach:
+        add("K-13", "High", "Phone history joins to named people on this Mac",
+            ["linkage.bridge", "comms.counterparts"],
+            "Phone numbers and email addresses in the synced Siri history resolve to %d people in this "
+            "Mac's graph through its handle map. Contact ids differ between devices, but handles do not, "
+            "so the phone's contact pattern attaches to names, faces and relationship scores here." % reach,
+            "Treat K-01 as identifying, not anonymous. See the connection map for every join.")
 
     # 11. watchlist
     if watch:

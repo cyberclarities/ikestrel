@@ -24,7 +24,7 @@ from kestrel import collect, db, report  # noqa: E402
 from kestrel.version import VERSION  # noqa: E402
 
 PUBLIC = os.path.join(HERE, "public")
-STATIC = {"app.js": "text/javascript", "app.css": "text/css", "report.css": "text/css",
+STATIC = {"map.js": "text/javascript", "map.css": "text/css", "app.js": "text/javascript", "app.css": "text/css", "report.css": "text/css",
           "report.js": "text/javascript", "logo.svg": "image/svg+xml"}
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
@@ -90,6 +90,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if u.path == "/api/summary":
                 d = collect.run(watch)
                 return self._send(200, json.dumps(d), "application/json")
+            if u.path == "/api/linkage":
+                db.begin()
+                try:
+                    from kestrel import linkage
+                    L = linkage.run()
+                    L["gaps"] = db.gaps()
+                finally:
+                    db.close()
+                return self._send(200, json.dumps(L), "application/json")
+            if u.path == "/map":
+                with open(os.path.join(PUBLIC, "map.html"), "rb") as fh:
+                    return self._send(200, fh.read(), cookie=cookie)
             if u.path == "/report/brief":
                 return self._send(200, report.brief(collect.run(watch)), cookie=cookie)
             if u.path == "/report/technical":
