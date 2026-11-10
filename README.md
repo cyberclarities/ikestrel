@@ -81,6 +81,22 @@ Click a store for what it holds and every join it has. Click a line for the over
 of each side. Drag stores to rearrange them. Toggle keys to see one join at a time. The same data
 is in a table under the map, and in section 3a of the technical report with its SQL.
 
+### Going deeper
+
+- **Click a store** for what it gives away on its own, the worst case it contributes to, and a few
+  example rows. The examples are invented, in the exact shape of real rows, so a reader can see what
+  a store means without the app showing anything real. Every email is `example.org` and every phone
+  number is in the reserved 555-01xx range; the tests check that.
+- **Click a line** for what that join lets someone learn.
+- **What can be ascertained** lists five chains. Each walks from store to store and counts how many
+  people are still in view at each step: from the phone's contacts to names, places and relationship
+  scores here; from inferred family to contact details; from faces to names and numbers; from the
+  people the owner flagged as important to the phone's history; from the people the owner messages
+  to their employers. **Show path on map** highlights the stores and the exact keys the chain uses.
+
+The chains, the per-store dossiers and the join notes are also in the technical report (sections
+3b and Appendix B), and the brief carries one line per chain.
+
 The map is also where finding K-13 comes from. Contact ids don't line up between a phone and a
 Mac. Phone numbers and email addresses do, so a phone's synced history attaches to names, faces
 and relationship scores on the Mac anyway.

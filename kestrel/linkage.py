@@ -20,6 +20,7 @@ import re
 
 from . import db
 from .stores import BY_ID
+from . import dossier
 
 SPACES = [
     ("entity", "Entity id", "The graph's own id for a person, place, app or organization."),
@@ -111,6 +112,154 @@ MEMBERS = [
 
 HUB = ("entity", "graph")
 
+TAG_COLS = ["mother", "father", "parent", "sister", "brother", "sibling", "family", "partner",
+            "child", "son", "daughter", "friend", "coworker"]
+
+# What a join gives someone who holds both stores. Keyed by key type and store pair.
+EDGE_NOTES = {
+    ("handle", "internalViews", "siriRemembers"):
+        "The bridge. The phone's history stores handles; this Mac maps handles to people. Together they "
+        "put names, addresses, employers and relationship scores on the phone's contact timeline, and "
+        "faces too once Photos ties them to contacts.",
+    ("contact", "siriRemembers", "siriResolver"):
+        "Both come from the same device, so contact ids match. Joined, they show which app the owner "
+        "habitually uses for each person.",
+    ("contact", "graph", "siriRemembers"):
+        "Few matches, because Contacts gives each device its own ids. Do not read the low number as "
+        "safety: the handle join does the same job.",
+    ("contact", "graph", "ecr"):
+        "Ties each contact to the spoken forms of their name Siri listens for.",
+    ("entity", "entityTagging", "graph"):
+        "Attaches a relationship score (parent, partner, friend, coworker) to every person in the graph.",
+    ("entity", "features", "graph"):
+        "Attaches the evidence behind the scores: shared surname, shared address, shared email domain, age.",
+    ("entity", "importance", "graph"):
+        "Marks favorites, emergency contacts and family on the graph's people.",
+    ("entity", "visualIdentifier", "graph"):
+        "Puts a Photos face cluster next to each person's name and contact details.",
+    ("entity", "photosAutonaming", "graph"):
+        "Proposes names for faces the owner never named.",
+    ("entity", "clients", "graph"):
+        "The Siri person view: names and employers per contact.",
+    ("entity", "ecr", "graph"):
+        "Apple's per-person summary of linked people, places and events.",
+    ("entity", "futureLifeEvent", "graph"):
+        "Geocoded addresses the system watches for life events.",
+    ("face", "graph", "keyvalue"):
+        "The face-to-person map. With the Photos library, it names everyone the system recognizes.",
+    ("device", "siriRemembers", "views"):
+        "Confirms which other devices feed this Mac, and when each last synced.",
+}
+
+SPACE_NOTES = {
+    "entity": "Shares the graph's entity ids, so every fact in one store attaches to the same person in the other.",
+    "contact": "Shares Contacts record ids. Matches well only when both stores come from the same device.",
+    "handle": "Shares phone numbers and email addresses, which are the same on every device.",
+    "face": "Shares Photos face-cluster ids.",
+    "device": "Shares the ids of other devices synced to this Mac.",
+}
+
+
+def _note(space, a, b):
+    k = (space,) + tuple(sorted((a, b)))
+    for key, text in EDGE_NOTES.items():
+        if (key[0],) + tuple(sorted(key[1:])) == k:
+            return text
+    return SPACE_NOTES.get(space, "")
+
+
+def _ids(store, table, sql):
+    rel = BY_ID[store][1]
+    if not db.has_table(rel, table):
+        return None
+    rs = db.rows(rel, sql)
+    return None if rs is None else set(_n_md(r[0]) for r in rs if r[0] is not None)
+
+
+def _chains(sets):
+    """Funnels across stores. Each step is a count; identifiers never leave this function."""
+    G = "select distinct subject from stable_graph where predicate"
+    named = _ids("graph", "stable_graph", G + "='PS33'")
+    # people point to a home or work place (PS225); the place carries the street address (PS317)
+    addr = _ids("graph", "stable_graph", G + "='PS225'")
+    face_matched = _ids("graph", "stable_graph",
+                        "select distinct subject from stable_graph where relationshipPredicate='nm_associationReason' "
+                        "and object != 'association:identifierNoMatch' union select distinct subject from stable_graph "
+                        "where predicate='PS102' and object like 'cnContact:%' and subject in (select subject from "
+                        "stable_graph where predicate='nm_hasVisualIdentifier')")
+    faces = _ids("graph", "stable_graph", G + "='nm_hasVisualIdentifier'")
+    bday = _ids("graph", "stable_graph", G + " in ('PS37','nm_imputedBirthday')")
+    employer = _ids("graph", "stable_graph", G + "='PS500'")
+    phone = _ids("graph", "stable_graph", G + "='PS520' and relationshipPredicate='PS407'")
+    tagged = _ids("entityTagging", "entity_tagging", "select mdid from entity_tagging where max(%s) >= 0.5"
+                  % ", ".join('"%s"' % c for c in TAG_COLS))
+    flagged = _ids("importance", "entityImportanceSignalsIDMap",
+                   "select entityIdentifier from entityImportanceSignalsIDMap where isFavorite or "
+                   "isEmergencyContact or isICloudFamily or coalesce(relationshipLabel,'') != ''")
+    handled = None
+    hrows = None
+    if db.has_table(BY_ID["internalViews"][1], "handle_id"):
+        hrows = db.rows(BY_ID["internalViews"][1], "select handle, id from handle_id")
+        if hrows is not None:
+            handled = set(str(i) for _, i in hrows)
+    sh = sets.get(("handle", "siriRemembers"))
+    bridged = None
+    if sh is not None and hrows is not None:
+        bridged = set(str(i) for h, i in hrows if _n_handle(h) in sh)
+
+    def funnel(cid, title, path, start_label, start, steps, explains, hops=None):
+        out = [{"label": start_label, "count": None if start is None else len(start)}]
+        cur = start
+        for label, s in steps:
+            cur = None if cur is None or s is None else cur & s
+            out.append({"label": label, "count": None if cur is None else len(cur)})
+        return {"id": cid, "title": title, "path": path, "hops": hops or [], "steps": out, "explains": explains}
+
+    C = [
+        funnel("C1", "From the phone's contacts to a profile on this Mac",
+               ["siriRemembers", "internalViews", "graph", "entityTagging"],
+               "People in the phone's history, matched by phone or email", bridged,
+               [("with a name", named), ("and a home or work address", addr),
+                ("and a relationship score of 0.5 or higher", tagged)],
+               "Starts from the communication history synced from another device. Each step adds one more "
+               "store on this Mac. The numbers show how many of the people the owner talks to can be named, "
+               "located and placed in the owner's family or social circle from this Mac alone."),
+        funnel("C2", "Who the Mac thinks is family, and how to reach them",
+               ["entityTagging", "graph", "internalViews", "siriRemembers"],
+               "People with a relationship score of 0.5 or higher", tagged,
+               [("with a phone number or email", handled), ("and a home or work address", addr),
+                ("and in the phone's history", bridged)],
+               "Relationship scores the owner never entered, joined to contact details. The last step shows "
+               "which inferred relatives the owner actually talks to."),
+        funnel("C3", "Faces with names and phone numbers",
+               ["keyvalue", "visualIdentifier", "graph"],
+               "Face clusters known to the graph", faces,
+               [("matched to a contact", face_matched), ("with a phone number", phone)],
+               "A recognized face, a name and a number in one place is enough to identify and contact someone "
+               "from a photo. A zero at the second step means Photos has not tied any face to a contact on this "
+               "Mac yet. The path exists; naming people in Photos fills it."),
+        funnel("C4", "The people who matter most",
+               ["importance", "graph", "internalViews", "siriRemembers"],
+               "People flagged as favorite, emergency contact, family or labeled", flagged,
+               [("with a phone number or email", handled), ("and in the phone's history", bridged)],
+               "The owner's own markers of importance. These are the people an attacker would impersonate "
+               "or approach first."),
+        funnel("C5", "Where the people you message work",
+               ["siriRemembers", "internalViews", "graph", "clients"],
+               "People in the phone's history, matched by phone or email", bridged,
+               [("with an employer on record", employer), ("and a birthday", bday)],
+               "Maps the owner's day-to-day contacts onto organizations. Useful for pretexting and for "
+               "working out the owner's professional network."),
+    ]
+    hops = {"C1": ["handle", "entity", "entity"], "C2": ["entity", "entity", "handle"], "C3": ["face", "face"],
+            "C4": ["entity", "entity", "handle"], "C5": ["handle", "entity", "entity"]}
+    for c in C:
+        c["hops"] = hops.get(c["id"], [])
+    for s in (named, addr, faces, face_matched, bday, employer, phone, tagged, flagged, handled, bridged):
+        if s is not None:
+            s.clear()
+    return C
+
 
 def _load(store, table, sql, norm):
     rel = BY_ID[store][1]
@@ -177,10 +326,15 @@ def run():
             nodes[sid] = {"id": sid, "group": group, "sensitivity": sens, "spaces": {}}
         nodes[sid]["path"] = path
         nodes[sid]["holds"] = holds
+        nodes[sid]["dossier"] = dossier.get(sid)
 
+    chains = _chains(sets)
+    for e in edges:
+        e["note"] = _note(e["space"], e["a"], e["b"])
     sets.clear()  # identifiers do not outlive the call
     return {"spaces": [{"id": a, "label": b, "about": c} for a, b, c in SPACES],
             "nodes": sorted(nodes.values(), key=lambda n: (n["group"], n["id"])),
             "edges": edges,
             "bridge": {"phone_history_to_graph_people": reach},
+            "chains": chains,
             "sql": [{"space": sp, "store": st, "sql": q} for (sp, st), q in sql_of.items()]}

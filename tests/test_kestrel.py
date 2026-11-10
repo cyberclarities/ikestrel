@@ -63,6 +63,31 @@ class Kestrel(unittest.TestCase):
         self.assertFalse(e[("contact", "graph", "siriResolver")]["measured"])  # resolver store absent
         self.assertIn("K-13", {f["id"] for f in self.d["findings"]})
 
+    def test_chains(self):
+        C = {c["id"]: [s["count"] for s in c["steps"]] for c in self.d["linkage"]["chains"]}
+        self.assertEqual(C["C1"], [1, 1, 1, 1])   # bridged -> named -> has a place -> friend 0.9
+        self.assertEqual(C["C2"], [2, 2, 1, 1])   # two confident scores; both have handles; one has a place
+        self.assertEqual(C["C5"], [1, 1, 1])      # employer, birthday
+        self.assertEqual(C["C3"][0], 0)           # no face links in the graph fixture
+        for c in self.d["linkage"]["chains"]:
+            self.assertEqual(len(c["hops"]), len(c["path"]) - 1)
+
+    def test_every_store_has_a_dossier(self):
+        from kestrel import dossier, stores
+        self.assertEqual(dossier.missing([s[0] for s in stores.STORES]), [])
+        tech = report.technical(self.d)
+        self.assertIn("What each store can give away", tech)
+        self.assertIn("What can be ascertained", tech)
+
+    def test_dossier_examples_are_invented(self):
+        import re
+        from kestrel import dossier
+        text = json.dumps(dossier.D)
+        for email in re.findall(r"[\w.+-]+@[\w.-]+", text):
+            self.assertTrue(email.endswith("example.org"), email)
+        for phone in re.findall(r"\+1 \d{3} \d{3} \d{4}", text):
+            self.assertRegex(phone, r"^\+1 555 01\d")
+
     def test_unknown_app_is_withheld(self):
         apps = self.g("comms.by_app")
         self.assertNotIn("com.secretcorp.tool", apps)

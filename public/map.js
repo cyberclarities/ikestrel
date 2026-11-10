@@ -66,7 +66,15 @@ function draw() {
   const vn = visibleNodes(), ve = visibleEdges(), vis = new Set(vn.map(n => n.id));
   const E = $("edges"), N = $("nodes"), L = $("labels");
   E.replaceChildren(); N.replaceChildren(); L.replaceChildren();
-  const nbr = new Set();
+  const nbr = new Set(), onPath = new Set();
+  if (selected && selected.kind === "chain") {
+    const p = selected.c.path; p.forEach(x => nbr.add(x));
+    const hops = selected.c.hops || [];
+    for (let i = 0; i + 1 < p.length; i++) { const k = hops[i] || "*"; onPath.add(p[i] + "|" + p[i + 1] + "|" + k); onPath.add(p[i + 1] + "|" + p[i] + "|" + k); }
+  }
+  const dimEdge = e => selected && ((selected.kind === "node" && !(nbr.has(e.a) && nbr.has(e.b) && (e.a === selected.id || e.b === selected.id)))
+                                 || (selected.kind === "chain" && !onPath.has(e.a + "|" + e.b + "|" + e.space) && !onPath.has(e.a + "|" + e.b + "|*")));
+  const dimNode = id => selected && (selected.kind === "node" || selected.kind === "chain") && !nbr.has(id);
   if (selected && selected.kind === "node") { nbr.add(selected.id); ve.forEach(e => { if (e.a === selected.id) nbr.add(e.b); if (e.b === selected.id) nbr.add(e.a); }); }
   ve.forEach(e => {
     if (!vis.has(e.a) || !vis.has(e.b)) return;
@@ -77,23 +85,26 @@ function draw() {
     const p = sv("path", { d: `M${a.x},${a.y} Q${cx},${cy} ${b.x},${b.y}`, stroke: css(key.v), "stroke-width": edgeWidth(e),
                            "stroke-dasharray": e.overlap ? key.dash : "2 5", tabindex: 0,
                            class: "edge" + (e.overlap ? "" : " zero") + (selected && selected.kind === "edge" && selected.e === e ? " sel" : "") +
-                                  (selected && selected.kind === "node" && !(nbr.has(e.a) && nbr.has(e.b) && (e.a === selected.id || e.b === selected.id)) ? " dim" : "") });
+                                  (dimEdge(e) ? " dim" : "") });
     p.appendChild(sv("title", {})).textContent = `${e.a} and ${e.b}: ${e.overlap} shared ${e.space} ids`;
-    p.addEventListener("click", ev => { ev.stopPropagation(); select({ kind: "edge", e }); });
     p.addEventListener("keydown", ev => { if (ev.key === "Enter") select({ kind: "edge", e }); });
-    E.appendChild(p);
+    const hit = sv("path", { d: p.getAttribute("d"), class: "hit", "data-edge": e.space + ":" + e.a + ":" + e.b });
+    hit.appendChild(sv("title", {})).textContent = p.firstChild.textContent;
+    hit.addEventListener("click", ev => { ev.stopPropagation(); select({ kind: "edge", e }); });
+    E.appendChild(p); E.appendChild(hit);
   });
   vn.forEach(n => {
     const g = sv("g", { class: "node" + (n.id === "graph" ? " hub" : "") + (selected && selected.kind === "node" && selected.id === n.id ? " sel" : "") +
-                         (selected && selected.kind === "node" && !nbr.has(n.id) ? " dim" : ""), transform: `translate(${n.x},${n.y})`, tabindex: 0 });
+                         (dimNode(n.id) ? " dim" : "") + (selected && selected.kind === "chain" && nbr.has(n.id) ? " sel" : ""), transform: `translate(${n.x},${n.y})`, tabindex: 0 });
     const c = sv("circle", { r: size(n), stroke: groupColor(n.group) });
     g.appendChild(c); g.appendChild(sv("title", {})).textContent = `${n.id} (${n.group})`;
     g.addEventListener("pointerdown", ev => startDrag(ev, n));
     g.addEventListener("keydown", ev => { if (ev.key === "Enter") select({ kind: "node", id: n.id }); });
     N.appendChild(g);
     const t = sv("text", { x: n.x, y: n.y - size(n) - 5, "text-anchor": "middle",
-                           class: "lbl" + (selected && selected.kind === "node" && !nbr.has(n.id) ? " dim" : "") });
-    t.textContent = n.id; L.appendChild(t);
+                           class: "lbl" + (dimNode(n.id) ? " dim" : "") });
+    const step = selected && selected.kind === "chain" ? selected.c.path.indexOf(n.id) : -1;
+    t.textContent = step >= 0 ? (step + 1) + ". " + n.id : n.id; L.appendChild(t);
   });
 }
 
@@ -105,7 +116,7 @@ function svgPoint(ev) { const r = $("map").getBoundingClientRect(); return { x: 
 function startDrag(ev, n) { ev.preventDefault(); ev.stopPropagation(); drag = { n, moved: false }; n.fixed = true; $("map").setPointerCapture(ev.pointerId); }
 $("map").addEventListener("pointermove", ev => { if (!drag) return; const p = svgPoint(ev); drag.n.x = p.x; drag.n.y = p.y; drag.moved = true; kick(0.15); draw(); });
 $("map").addEventListener("pointerup", () => { if (!drag) return; if (!drag.moved) select({ kind: "node", id: drag.n.id }); drag.n.fixed = drag.moved; drag = null; });
-$("map").addEventListener("click", () => { if (selected) { selected = null; panelDefault(); draw(); } });
+$("map").addEventListener("click", () => { if (selected) { selected = null; panelDefault(); chainCards(); draw(); } });
 
 function dl(pairs) { const d = el("dl"); pairs.forEach(([k, v]) => { d.appendChild(el("dt", k)); d.appendChild(el("dd", v)); }); return d; }
 function panelDefault() { const P = $("panel"); P.replaceChildren(el("h2", "Details"), el("p", "Click a store or a line. Drag stores to rearrange.")); }
@@ -116,6 +127,16 @@ function select(s) {
   if (s.kind === "node") {
     const n = byId[s.id]; P.appendChild(el("h2", n.id));
     P.appendChild(dl([["Store", n.path], ["Group", n.group], ["Sensitivity", n.sensitivity], ["Holds", n.holds]]));
+    if (n.dossier) {
+      P.appendChild(el("h3", "What it gives away"));
+      P.appendChild(el("p", n.dossier.alone));
+      const w = el("p", null, "worst"); w.appendChild(el("strong", "Worst case. ")); w.appendChild(document.createTextNode(n.dossier.worst)); P.appendChild(w);
+      P.appendChild(el("h3", "Example rows"));
+      P.appendChild(el("p", "Invented values in the shape of real rows. Nothing here comes from this Mac.", "tag"));
+      const ul = el("ul", null, "ex"); n.dossier.example.forEach(x => ul.appendChild(el("li", x))); P.appendChild(ul);
+    }
+    const inChains = (data.chains || []).filter(c => c.path.includes(n.id));
+    if (inChains.length) { P.appendChild(el("h3", "Part of these chains")); const ul = el("ul"); inChains.forEach(c => ul.appendChild(el("li", c.id + " " + c.title))); P.appendChild(ul); }
     const sp = Object.entries(n.spaces || {});
     P.appendChild(el("h3", "Identifiers it holds"));
     if (!sp.length) P.appendChild(el("p", "None of the five join keys. This store stands alone."));
@@ -124,15 +145,42 @@ function select(s) {
     P.appendChild(el("h3", "Joins"));
     if (!mine.length) P.appendChild(el("p", "No joins shown with the current filters."));
     else { const ul = el("ul"); mine.forEach(e => { const o = e.a === n.id ? e.b : e.a; ul.appendChild(el("li", `${o} by ${e.space}: ${e.overlap} shared`)); }); P.appendChild(ul); }
+  } else if (s.kind === "chain") {
+    const c = s.c; P.appendChild(el("h2", c.id + " " + c.title));
+    P.appendChild(el("p", "Path: " + c.path.join(" → "), "tag")); funnel(c, P); P.appendChild(el("p", c.explains, "note"));
+    const missing = c.path.filter(id => !visibleNodes().some(n => n.id === id));
+    if (missing.length) P.appendChild(el("p", "Hidden by the current filters: " + missing.join(", "), "tag"));
   } else {
     const e = s.e; P.appendChild(el("h2", `${e.a} and ${e.b}`));
     const sp = data.spaces.find(x => x.id === e.space) || { label: e.space, about: "" };
     P.appendChild(dl([["Join key", sp.label], ["What it is", sp.about], ["Shared identifiers", String(e.overlap)],
       [`Share of ${e.a}`, `${pct(e.overlap, e.a_size)} of ${e.a_size}`], [`Share of ${e.b}`, `${pct(e.overlap, e.b_size)} of ${e.b_size}`]]));
+    if (e.note) { P.appendChild(el("h3", "What this join reveals")); P.appendChild(el("p", e.note, "note")); }
     if (e.space === "contact" && e.overlap < Math.min(e.a_size, e.b_size) * 0.2)
       P.appendChild(el("p", "Low overlap on contact ids usually means the two stores come from different devices: Contacts gives each device its own UUIDs. Check the handle join for the real bridge."));
   }
+  if (data && data.chains) chainCards();
   draw();
+}
+
+function funnel(c, into) {
+  const max = Math.max(1, ...c.steps.map(s => s.count || 0));
+  c.steps.forEach(s => {
+    const row = el("div", null, "step" + (s.count ? "" : " zero"));
+    const left = el("div"); left.appendChild(el("div", s.label, "barlabel"));
+    const bar = el("div", null, "bar"); bar.style.width = (s.count == null ? 0 : Math.max(1, 100 * s.count / max)) + "%"; left.appendChild(bar);
+    row.appendChild(left); row.appendChild(el("div", s.count == null ? "n/m" : s.count, "stepn")); into.appendChild(row);
+  });
+}
+function chainCards() {
+  const C = $("chains"); C.replaceChildren();
+  (data.chains || []).forEach(c => {
+    const card = el("article", null, "chain" + (selected && selected.kind === "chain" && selected.c.id === c.id ? " sel" : ""));
+    card.appendChild(el("h3", c.id + " " + c.title)); funnel(c, card); card.appendChild(el("p", c.explains));
+    const b = el("button", "Show path on map"); b.type = "button";
+    b.addEventListener("click", ev => { ev.stopPropagation(); select({ kind: "chain", c }); $("map").scrollIntoView({ behavior: "smooth", block: "center" }); });
+    card.appendChild(b); C.appendChild(card);
+  });
 }
 
 function legend() {
@@ -170,5 +218,5 @@ fetch("/api/linkage", { credentials: "same-origin" }).then(r => { if (!r.ok) thr
     ? "The phone-to-Mac bridge could not be measured on this copy."
     : `Phone history on this Mac reaches ${b} people in its knowledge graph through phone numbers and email addresses, even where contact ids don't match.`;
   if (d.gaps && d.gaps.length) $("bridge").textContent += ` ${d.gaps.length} store(s) could not be read; their joins are marked not measured.`;
-  controls(); legend(); table(); panelDefault(); seed(); kick(1);
+  controls(); legend(); table(); chainCards(); panelDefault(); seed(); kick(1);
 }).catch(e => { $("bridge").textContent = "Could not load the map (" + e.message + "). Check the terminal."; });

@@ -30,3 +30,20 @@ a { color:var(--accent); }
 .legend span.dot { display:inline-block; width:12px; height:12px; border-radius:50%; border:2.5px solid; vertical-align:middle; margin-right:6px; }
 .legend .k-zero { border-top-style:dotted; border-top-width:3px; }
 .legend .k-contact { border-top-style:dashed; } .legend .k-handle { border-top-style:dotted; } .legend .k-device { border-top-style:double; border-top-width:4px; }
+
+.intro { color:var(--muted); font-size:14px; }
+.chains { display:grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap:12px; }
+.chain { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+.chain.sel { border-color:var(--accent); border-width:2px; }
+.chain h3 { margin:0 0 8px; font-size:15px; font-weight:600; }
+.chain p { font-size:13px; color:var(--muted); margin:8px 0; }
+.chain button { padding:3px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--ink); cursor:pointer; font-size:13px; }
+.step { display:grid; grid-template-columns: 1fr 48px; gap:6px; align-items:center; font-size:13px; margin:3px 0; }
+.bar { height:8px; background:var(--accent); border-radius:4px; min-width:2px; }
+.barlabel { margin-bottom:2px; } .stepn { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+.step.zero .stepn { color:var(--muted); }
+.panel .ex { font-family: ui-monospace, Menlo, monospace; font-size:12px; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:6px 8px; margin:4px 0; list-style:none; }
+.panel .ex li { margin:2px 0; word-break:break-word; } .panel .tag { font-size:11px; color:var(--muted); }
+.panel .worst { border-left:3px solid var(--g9); padding-left:8px; }
+.panel .note { border-left:3px solid var(--accent); padding-left:8px; }
+.hit { fill:none; stroke:transparent; stroke-width:16; pointer-events:stroke; cursor:pointer; }

@@ -6,6 +6,8 @@ collect.run() measured, which is counts only.
 
 import html
 
+from . import dossier
+
 E = html.escape
 
 
@@ -75,6 +77,7 @@ stores and measured %(measured)d. Findings: %(tally)s.</p>
 </ul>
 <p>Every number in this brief is a count. It names no person, number, address, network or message.</p>
 <h2>Findings</h2>%(findings)s
+<h2>What joining the stores reveals</h2><ul>%(chainbrief)s</ul>
 <h2>What this brief cannot tell you</h2><ul>%(open)s</ul>
 """ % {"ver": E(d["version"]), "gen": E(d["generated"]), "mode": "a copy" if d["mode"] == "copy" else "this Mac, live",
        "present": present, "known": len(cov), "measured": measured, "tally": E(tally),
@@ -82,6 +85,9 @@ stores and measured %(measured)d. Findings: %(tally)s.</p>
        "inter": v("comms.interactions"), "devs": v("comms.remote_devices"), "scored": v("rel.scored"),
        "faces": v("photos.face_links"), "wifi": v("ctx.wifi_networks"),
        "findings": _findings_list(d["findings"]),
+       "chainbrief": "".join("<li>%s: %s.</li>" % (E(c["title"]), E(", then ".join(
+           "%s %s" % ("not measured" if s["count"] is None else s["count"], s["label"].lower()) for s in c["steps"])))
+           for c in (d.get("linkage") or {}).get("chains", [])) or "<li>Not measured.</li>",
        "open": "".join("<li>%s</li>" % E(q) for q in d["open"])}
     return _page("iKestrel brief", body)
 
@@ -94,6 +100,29 @@ def _linkage_rows(L):
         ov = "not measured" if not e["measured"] else "%d" % e["overlap"]
         out.append("<tr><td>%s</td><td><code>%s</code></td><td><code>%s</code></td><td>%s</td><td>%s / %s</td></tr>"
                    % (E(e["space"]), E(e["a"]), E(e["b"]), E(ov), E(str(e["a_size"])), E(str(e["b_size"]))))
+    return "".join(out)
+
+
+def _chains(L):
+    out = []
+    for c in (L or {}).get("chains", []):
+        steps = "".join("<tr><td>%s</td><td>%s</td></tr>" % (E(s["label"]), E("not measured" if s["count"] is None else str(s["count"])))
+                        for s in c["steps"])
+        out.append("<h3>%s %s</h3><p class='meta'>Path: %s</p><table>%s</table><p>%s</p>"
+                   % (E(c["id"]), E(c["title"]), E(" > ".join(c["path"])), steps, E(c["explains"])))
+    return "".join(out) or "<p>Not measured.</p>"
+
+
+def _dossiers(cov):
+    out = []
+    for c in cov:
+        d = dossier.get(c["id"])
+        if not d:
+            continue
+        ex = "".join("<li><code>%s</code></li>" % E(x) for x in d["example"])
+        out.append("<h3><code>%s</code> (%s, %s)</h3><p><strong>Alone.</strong> %s</p>"
+                   "<p><strong>Worst case.</strong> %s</p><ul>%s</ul>"
+                   % (E(c["path"]), E(c["group"]), E(c["sensitivity"]), E(d["alone"]), E(d["worst"]), ex))
     return "".join(out)
 
 
@@ -136,16 +165,20 @@ when it reads a WAL, and they hold no rows.</p>
 <p>Overlap counts between identifier sets. The identifiers themselves are never shown. Entity ids are drawn
 as a hub on graph.db. Graph people reachable from the phone's history through handles: %(bridge)s.</p>
 <table><tr><th>Key</th><th>Store</th><th>Store</th><th>Shared ids</th><th>Sizes</th></tr>%(link)s</table>
+<h2>3b. What can be ascertained</h2>
+<p>Each chain walks across stores and counts how many people remain in view at each step. Counts only.</p>%(chains)s
 <h2>4. All measurements</h2>
 <table><tr><th>Id</th><th>What</th><th>Value</th></tr>%(meas)s</table>
 <h2>5. Watchlist</h2><p>Counts of handles containing each term. What matched is never shown.</p><ul>%(watch)s</ul>
 <h2>6. Not measured, and why</h2><ul>%(gaps)s</ul>
 <h2>7. Open questions</h2><ul>%(open)s</ul>
 <h2>Appendix A. App categories</h2><p>Bundle ids outside these prefixes appear only as "unlisted app".</p><ul>%(cat)s</ul>
-<h2>Appendix B. The SQL behind every number</h2>%(sqls)s
+<h2>Appendix B. What each store can give away</h2>
+<p>Every example value below is invented, in the shape of a real row. None of it comes from the Mac under review.</p>%(dossiers)s
+<h2>Appendix C. The SQL behind every number</h2>%(sqls)s
 """ % {"ver": E(d["version"]), "gen": E(d["generated"]), "mode": E(d["mode"]), "root": E(d["root"]),
        "scope": scope or "<tr><td colspan='3'>Hashes not computed.</td></tr>", "cov": cov_rows, "extra": extra,
        "findings": _findings_list(d["findings"], True, M), "meas": meas, "watch": watch, "gaps": gaps,
        "open": "".join("<li>%s</li>" % E(q) for q in d["open"]), "cat": cat, "sqls": sqls,
-       "link": _linkage_rows(L), "bridge": E(str((L.get("bridge") or {}).get("phone_history_to_graph_people", "not measured")))}
+       "link": _linkage_rows(L), "chains": _chains(L), "dossiers": _dossiers(d["coverage"]), "bridge": E(str((L.get("bridge") or {}).get("phone_history_to_graph_people", "not measured")))}
     return _page("iKestrel technical report", body)
