@@ -43,15 +43,16 @@ def build(root):
 
     # siri remembers: 5 interactions, 4 from another device; 3 private-messenger sends
     r = _db(root, "Artifacts/siri/remembers/view.db",
-            "create table interactions(rowid INTEGER PRIMARY KEY, type TEXT, bundleId TEXT, startDate DOUBLE, remoteDeviceId TEXT);"
+            "create table interactions(rowid INTEGER PRIMARY KEY, type TEXT, bundleId TEXT, startDate DOUBLE, remoteDeviceId TEXT, durationSeconds DOUBLE DEFAULT 0);"
             "create table entities(rowid INTEGER PRIMARY KEY, id TEXT, type TEXT, fields TEXT);"
             "create table interactionEntities(interactionRowid INTEGER, entityRowid INTEGER, parameter TEXT);")
     ints = [(1, "INSendMessageIntent", "ph.telegra.Telegraph", 800000000, "DEV-A"),
             (2, "INSendMessageIntent", "ph.telegra.Telegraph", 800000100, "DEV-A"),
             (3, "INSendMessageIntent", "ph.telegra.Telegraph", 800000200, "DEV-A"),
             (4, "INStartCallIntent", "com.secretcorp.tool", 800000300, "DEV-A"),
-            (5, "WeatherIntent", "com.apple.weather", 800000400, "")]
-    r.executemany("insert into interactions values (?,?,?,?,?)", ints)
+            (5, "WeatherIntent", "com.apple.weather", 800000400, ""),
+            (6, "INSendMessageIntent", "com.apple.MobileSMS", 800000500, "DEV-A")]
+    r.executemany("insert into interactions (rowid, type, bundleId, startDate, remoteDeviceId) values (?,?,?,?,?)", ints)
     r.executemany("insert into entities values (?,?,?,?)", [
         (1, "p1", "Person", json.dumps({"name": "Zebulon Quartermain"})),
         (2, "p2", "Person", json.dumps({"name": "Juniper Ashgrove"})),
@@ -59,7 +60,9 @@ def build(root):
         (4, "+1 (555) 010-0777", "PersonHandle", json.dumps({"type": "phone"})),
         (5, "nobody@elsewhere.test", "PersonHandle", json.dumps({"type": "email"}))])
     r.executemany("insert into interactionEntities values (?,?,?)",
-                  [(1, 1, "recipients"), (2, 1, "recipients"), (3, 1, "recipients"), (4, 2, "recipients")])
+                  [(1, 1, "recipients"), (2, 1, "recipients"), (3, 1, "recipients"), (4, 2, "recipients"),
+                   (1, 4, "recipientHandles"), (2, 4, "recipientHandles"), (3, 4, "recipientHandles"),
+                   (6, 4, "senderHandle")])
     r.commit()
 
     # internal views: handles, wifi

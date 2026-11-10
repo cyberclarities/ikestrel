@@ -165,13 +165,29 @@ function select(s) {
 
 function funnel(c, into) {
   const max = Math.max(1, ...c.steps.map(s => s.count || 0));
-  c.steps.forEach(s => {
-    const row = el("div", null, "step" + (s.count ? "" : " zero"));
+  c.steps.forEach((s, i) => {
+    const live = window.Reveal && Reveal.on() && s.count;
+    const row = el(live ? "button" : "div", null, "step" + (s.count ? "" : " zero") + (live ? " live" : ""));
+    if (live) { row.type = "button"; row.title = "List the people at this step";
+      row.addEventListener("click", ev => { ev.stopPropagation(); members(c, i); }); }
     const left = el("div"); left.appendChild(el("div", s.label, "barlabel"));
     const bar = el("div", null, "bar"); bar.style.width = (s.count == null ? 0 : Math.max(1, 100 * s.count / max)) + "%"; left.appendChild(bar);
     row.appendChild(left); row.appendChild(el("div", s.count == null ? "n/m" : s.count, "stepn")); into.appendChild(row);
   });
 }
+function members(c, i) {
+  selected = { kind: "chain", c }; draw(); chainCards();
+  const P = $("panel"); P.replaceChildren(el("h2", c.id + ", step " + (i + 1)), el("p", c.steps[i].label, "tag"), el("p", "Reading…", "tag"));
+  Reveal.get("chain?id=" + c.id + "&step=" + i).then(({ data }) => {
+    P.lastChild.remove();
+    P.appendChild(el("p", data.length + " people. Real values, shown only in this browser.", "tag"));
+    const ul = el("ul");
+    data.forEach(p => { const li = el("li"); const a = el("a", p.name); a.href = "/person?id=" + encodeURIComponent(p.id); li.appendChild(a); ul.appendChild(li); });
+    P.appendChild(ul);
+  }).catch(e => { P.lastChild.textContent = "Could not load (" + e.message + ")."; });
+}
+document.addEventListener("reveal-change", () => { if (data) chainCards(); });
+
 function chainCards() {
   const C = $("chains"); C.replaceChildren();
   (data.chains || []).forEach(c => {

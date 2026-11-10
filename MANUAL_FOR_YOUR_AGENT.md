@@ -30,3 +30,8 @@ which sends nothing off the Mac.
 5. `sources` in graph.db is a bitmask: 1 Contacts, 32 Photos, 256 Calendar, 8192 Family
    Sharing, 32768 installed apps. Test bits; don't group by the raw value.
 6. A store you can't read is not measured. Say so. Don't report it as empty.
+7. Don't read Siri's `direction` code as Apple documents it. On real data, rows naming a sender
+   are messages received and rows with only recipients are messages sent.
+8. iKestrel's `/api/reveal/*` endpoints return real names, numbers and message history. They
+   need the token and an `X-Kestrel-Reveal: 1` header. Section 1 applies to them in full: no
+   call without the owner's yes.

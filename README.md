@@ -81,6 +81,39 @@ Click a store for what it holds and every join it has. Click a line for the over
 of each side. Drag stores to rearrange them. Toggle keys to see one join at a time. The same data
 is in a table under the map, and in section 3a of the technical report with its SQL.
 
+## Real values
+
+Everything above is counts only. Turn on **Show real values** in the bar at the top of any page
+and four views open up, in your browser only:
+
+- **People.** Pick anyone and see every fact this Mac links to them across every store: name,
+  phones and emails, graph facts with places resolved to street addresses, relationship scores,
+  the features behind them, importance flags, Siri's summary and spoken aliases, ages read from
+  faces, and their communication history from the synced Siri store, with each message marked as
+  sent to them, received from them, or a group message they were in.
+- **Chain drill-down.** On the map, each step of a chain becomes clickable and lists the people
+  still in view at that step, each linking to their profile.
+- **Browse stores.** Page through any store's real rows, with ontology codes and Apple dates
+  decoded and archived values unpacked.
+- **Timeline.** Siri history, Wi-Fi joins, calendar events, two-way contact and Photos
+  observations on one timeline, newest first, with phone numbers resolved to names.
+
+How it is fenced:
+
+- The toggle is off by default and lives in the tab's session storage, which is tied to the
+  server's port, so every restart turns it off again. A red bar stays up while it's on.
+- Real values come only from `/api/reveal/*`, which needs the session token **and** a header the
+  app's own pages send. A link or an embedded request can't fetch them.
+- Reports and the CSV never include real values, whatever the toggle says. The tests check it.
+- Everything is still read-only and nothing is written to disk.
+
+One thing to know before you read the communication history: Siri's `direction` column does not
+match Apple's documented enum on real data. iKestrel reads direction from who is listed on each
+row instead. A row that names a sender is a message received; a row with only recipients is a
+message sent.
+
+Turn the toggle off before you share your screen.
+
 ## The store sheet
 
 Open **Store sheet** from the main page for every store in one table: group, sensitivity, a

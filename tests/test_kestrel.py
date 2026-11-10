@@ -43,9 +43,9 @@ class Kestrel(unittest.TestCase):
         self.assertEqual(self.g("graph.classes"), {"people": 2, "organizations": 1, "apps": 1})
         self.assertEqual(self.g("graph.by_source")["Photos"], 2)
         self.assertEqual(self.v("graph.addresses"), 1)
-        self.assertEqual(self.v("comms.interactions"), 5)
+        self.assertEqual(self.v("comms.interactions"), 6)
         self.assertEqual(self.v("comms.remote_devices"), 1)
-        self.assertEqual(self.g("comms.by_device"), {"other device 1": 4, "this Mac": 1})
+        self.assertEqual(self.g("comms.by_device"), {"other device 1": 5, "this Mac": 1})
         self.assertEqual(self.g("comms.by_category")["Private messenger"], 3)
         self.assertEqual(self.v("comms.top_share"), 75)
         self.assertEqual(self.v("comms.message_bodies"), 0)
@@ -113,6 +113,42 @@ class Kestrel(unittest.TestCase):
         self.assertEqual(sheet._safe("plain"), "plain")
         self.assertEqual(sheet._safe(5), "5")
 
+    def test_reveal_values(self):
+        from kestrel import reveal
+        db.begin()
+        try:
+            ppl = reveal.people()
+            names = {p["name"] for p in ppl["people"]}
+            self.assertEqual(ppl["total"], 2)
+            self.assertIn("Zebulon Quartermain", names)
+            P = reveal.person("1")
+            self.assertEqual(P["name"], "Zebulon Quartermain")
+            self.assertIn("+15550100777", P["handles"])
+            self.assertEqual(P["relationship_scores"].get("friend"), 0.9)
+            c = P["communications"]
+            self.assertEqual((c["total"], c["sent"], c["received"], c["group"]), (4, 3, 1, 0))
+            self.assertEqual(c["by_app"], {"ph.telegra.Telegraph": 3, "com.apple.MobileSMS": 1})
+            self.assertEqual([m["name"] for m in reveal.chain("C1", 0)], ["Zebulon Quartermain"])
+            self.assertIsNone(reveal.chain("C1", 99))
+            T = reveal.timeline(limit=50)
+            wifi = [e["detail"] for e in T["events"] if e["source"] == "Wi-Fi"]
+            self.assertIn("Hidden Clinic WiFi", wifi)
+            sms = [e for e in T["events"] if e["app"] == "com.apple.MobileSMS"][0]
+            self.assertEqual(sms["direction"], "received")
+            self.assertEqual(sms["detail"], "Zebulon Quartermain")   # handle resolved to a name
+            b = reveal.browse("graph", "stable_graph", 0, 10)
+            self.assertEqual(b["total"], 10)
+            self.assertIn("timestamp", b["columns"])
+            self.assertIsNone(reveal.browse("graph", "nope", 0, 10))
+        finally:
+            db.close()
+
+    def test_reports_never_carry_real_values(self):
+        from kestrel import sheet
+        out = report.brief(self.d) + report.technical(self.d) + json.dumps(self.d) + sheet.to_csv(sheet.rows(self.d))
+        for s in ("Zebulon Quartermain", "Juniper Ashgrove", "Hidden Clinic WiFi", "+15550100777", "77 Fictional Lane"):
+            self.assertNotIn(s, out, s)
+
     def test_unknown_app_is_withheld(self):
         apps = self.g("comms.by_app")
         self.assertNotIn("com.secretcorp.tool", apps)
@@ -166,6 +202,16 @@ class Kestrel(unittest.TestCase):
             self.assertIn("text/csv", r.headers["Content-Type"])
             with self.assertRaises(urllib.error.HTTPError):
                 urllib.request.urlopen(base + "/export/stores.csv")
+            for path in ("/person", "/timeline", "/browse", "/static/reveal.js", "/static/person.js"):
+                self.assertEqual(urllib.request.urlopen(base + path + "?t=" + token).status, 200)
+            with self.assertRaises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(base + "/api/reveal/people?t=" + token)   # no reveal header
+            self.assertEqual(e.exception.code, 403)
+            req = urllib.request.Request(base + "/api/reveal/people?t=" + token, headers={"X-Kestrel-Reveal": "1"})
+            self.assertIn("Zebulon Quartermain", urllib.request.urlopen(req).read().decode())
+            with self.assertRaises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(urllib.request.Request(base + "/api/reveal/people", headers={"X-Kestrel-Reveal": "1"}))
+            self.assertEqual(e.exception.code, 403)                                # header without token
             body = urllib.request.urlopen(base + "/api/linkage?t=" + token).read().decode()
             for s in make_fixture.SECRETS:
                 self.assertNotIn(s, body, s)

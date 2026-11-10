@@ -176,7 +176,15 @@ def _ids(store, table, sql):
     return None if rs is None else set(_n_md(r[0]) for r in rs if r[0] is not None)
 
 
-def _chains(sets):
+def _owner():
+    """The Mac owner's entity id, so chains count the people the owner talks to, not the owner."""
+    if not db.has_table("graph.db", "stable_graph"):
+        return set()
+    rs = db.rows("graph.db", "select distinct subject from stable_graph where predicate='nm_isCurrentUser'") or []
+    return set(str(r[0]) for r in rs)
+
+
+def _chains(sets, keep=None):
     """Funnels across stores. Each step is a count; identifiers never leave this function."""
     G = "select distinct subject from stable_graph where predicate"
     named = _ids("graph", "stable_graph", G + "='PS33'")
@@ -205,14 +213,18 @@ def _chains(sets):
     sh = sets.get(("handle", "siriRemembers"))
     bridged = None
     if sh is not None and hrows is not None:
-        bridged = set(str(i) for h, i in hrows if _n_handle(h) in sh)
+        bridged = set(str(i) for h, i in hrows if _n_handle(h) in sh) - _owner()
 
     def funnel(cid, title, path, start_label, start, steps, explains, hops=None):
         out = [{"label": start_label, "count": None if start is None else len(start)}]
         cur = start
+        kept = [None if start is None else set(start)]
         for label, s in steps:
             cur = None if cur is None or s is None else cur & s
             out.append({"label": label, "count": None if cur is None else len(cur)})
+            kept.append(None if cur is None else set(cur))
+        if keep is not None:
+            keep[cid] = kept
         return {"id": cid, "title": title, "path": path, "hops": hops or [], "steps": out, "explains": explains}
 
     C = [
@@ -278,14 +290,29 @@ def _load(store, table, sql, norm):
     return out
 
 
+def load_sets():
+    sets, sql_of = {}, {}
+    for space, store, table, sql, norm in MEMBERS:
+        sets[(space, store)] = _load(store, table, sql, norm)
+        sql_of[(space, store)] = sql
+    return sets, sql_of
+
+
+def chain_members(cid, step):
+    """The entity ids still in view at one step of one chain. For the local reveal view only."""
+    sets, _ = load_sets()
+    keep = {}
+    _chains(sets, keep)
+    sets.clear()
+    steps = keep.get(cid) or []
+    if step < 0 or step >= len(steps) or steps[step] is None:
+        return None
+    return steps[step]
+
+
 def run():
     """Nodes, edges and bridge counts. Counts only."""
-    sets = {}
-    sql_of = {}
-    for space, store, table, sql, norm in MEMBERS:
-        s = _load(store, table, sql, norm)
-        sets[(space, store)] = s
-        sql_of[(space, store)] = sql
+    sets, sql_of = load_sets()
 
     edges = []
 
@@ -314,7 +341,7 @@ def run():
     if sh is not None and db.has_table(BY_ID["internalViews"][1], "handle_id"):
         rs = db.rows(BY_ID["internalViews"][1], "select handle, id from handle_id")
         if rs is not None:
-            reach = len(set(i for h, i in rs if _n_handle(h) in sh))
+            reach = len(set(str(i) for h, i in rs if _n_handle(h) in sh) - _owner())
 
     nodes = {}
     for (space, store), s in sets.items():

@@ -24,7 +24,8 @@ from kestrel import collect, db, report  # noqa: E402
 from kestrel.version import VERSION  # noqa: E402
 
 PUBLIC = os.path.join(HERE, "public")
-STATIC = {"sheet.js": "text/javascript", "sheet.css": "text/css", "map.js": "text/javascript", "map.css": "text/css", "app.js": "text/javascript", "app.css": "text/css", "report.css": "text/css",
+STATIC = {"reveal.js": "text/javascript", "reveal.css": "text/css", "person.js": "text/javascript",
+          "browse.js": "text/javascript", "timeline.js": "text/javascript", "sheet.js": "text/javascript", "sheet.css": "text/css", "map.js": "text/javascript", "map.css": "text/css", "app.js": "text/javascript", "app.css": "text/css", "report.css": "text/css",
           "report.js": "text/javascript", "logo.svg": "image/svg+xml"}
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
@@ -99,6 +100,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 finally:
                     db.close()
                 return self._send(200, json.dumps(L), "application/json")
+            if u.path.startswith("/api/reveal/"):
+                return self._reveal(u.path[len("/api/reveal/"):], q)
+            if u.path in ("/person", "/browse", "/timeline"):
+                with open(os.path.join(PUBLIC, u.path[1:] + ".html"), "rb") as fh:
+                    return self._send(200, fh.read(), cookie=cookie)
             if u.path == "/api/sheet":
                 from kestrel import sheet
                 d = collect.run(watch)
@@ -132,6 +138,40 @@ class Handler(http.server.BaseHTTPRequestHandler):
             sys.stderr.write("error on %s: %s\n" % (u.path, type(e).__name__))
             return self._send(500, "Internal error. See the terminal.", "text/plain")
         return self._send(404, "Not found", "text/plain")
+
+    def _reveal(self, name, q):
+        """Real values for the local browser. Needs the token (checked above) and the reveal header."""
+        if self.headers.get("X-Kestrel-Reveal") != "1":
+            return self._send(403, "Real values need the in-app toggle.", "text/plain; charset=utf-8")
+        from kestrel import reveal
+        arg = lambda k, d=None: (q.get(k) or [d])[0]  # noqa: E731
+        db.begin()
+        try:
+            if name == "people":
+                out = reveal.people(arg("q", ""))
+            elif name == "person":
+                out = reveal.person(arg("id", ""))
+            elif name == "chain":
+                out = reveal.chain(arg("id", ""), int(arg("step", "0")))
+            elif name == "stores":
+                out = reveal.stores_list()
+            elif name == "tables":
+                out = reveal.tables(arg("store", ""))
+            elif name == "browse":
+                out = reveal.browse(arg("store", ""), arg("table", ""), int(arg("offset", "0")), min(200, int(arg("limit", "50"))))
+            elif name == "timeline":
+                src = [s for s in (arg("sources", "") or "").split(",") if s] or None
+                out = reveal.timeline(arg("before"), min(1000, int(arg("limit", "200"))), src)
+            else:
+                return self._send(404, "Not found", "text/plain")
+            if out is None:
+                return self._send(404, "Not found on this Mac.", "text/plain")
+            out = {"data": out, "gaps": db.gaps()}
+        except (KeyError, ValueError):
+            return self._send(400, "Bad request", "text/plain")
+        finally:
+            db.close()
+        return self._send(200, json.dumps(out, default=str), "application/json")
 
     def do_POST(self):
         self._send(405, "Read-only.", "text/plain")
