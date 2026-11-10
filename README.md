@@ -81,6 +81,19 @@ Click a store for what it holds and every join it has. Click a line for the over
 of each side. Drag stores to rearrange them. Toggle keys to see one join at a time. The same data
 is in a table under the map, and in section 3a of the technical report with its SQL.
 
+## The store sheet
+
+Open **Store sheet** from the main page for every store in one table: group, sensitivity, a
+headline count, how many identifiers of each key it holds, how many stores it joins, which chains
+it sits in, and its measurement status. Sort by any column, filter by group or sensitivity, search
+any text. **Show risk text** adds what each store gives away and its worst case; **Show example
+rows** adds the invented examples.
+
+**Download CSV** saves the same rows, built by the same code, so the file and the page can't
+disagree. Cells that begin with `=`, `+`, `-` or `@` are prefixed with an apostrophe so a
+spreadsheet opens them as text, never as formulas. The file starts with a byte-order mark so
+Excel reads it as UTF-8.
+
 ### Going deeper
 
 - **Click a store** for what it gives away on its own, the worst case it contributes to, and a few

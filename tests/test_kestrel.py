@@ -88,6 +88,31 @@ class Kestrel(unittest.TestCase):
         for phone in re.findall(r"\+1 \d{3} \d{3} \d{4}", text):
             self.assertRegex(phone, r"^\+1 555 01\d")
 
+    def test_sheet(self):
+        import csv, io
+        from kestrel import sheet, stores
+        rs = sheet.rows(self.d)
+        self.assertEqual(len(rs), len(stores.STORES))
+        g = {r["store"]: r for r in rs}
+        self.assertEqual(g["graph"]["ids_entity"], 4)
+        self.assertEqual(g["internalViews"]["ids_handle"], 3)
+        self.assertIn("C1", g["siriRemembers"]["chains"])
+        self.assertEqual(rs[0]["sensitivity"], "High")       # sorted by sensitivity first
+        text = sheet.to_csv(rs)
+        self.assertTrue(text.startswith("\ufeff"))
+        parsed = list(csv.reader(io.StringIO(text.lstrip("\ufeff"))))
+        self.assertEqual(len(parsed), len(rs) + 1)
+        self.assertEqual(len(parsed[0]), len(sheet.COLUMNS))
+        for s in make_fixture.SECRETS:
+            self.assertNotIn(s, text, s)
+
+    def test_csv_formula_injection_guard(self):
+        from kestrel import sheet
+        for bad in ("=1+1", "+cmd", "-2", "@SUM(A1)", "\tx", "\rx"):
+            self.assertTrue(sheet._safe(bad).startswith("'"), bad)
+        self.assertEqual(sheet._safe("plain"), "plain")
+        self.assertEqual(sheet._safe(5), "5")
+
     def test_unknown_app_is_withheld(self):
         apps = self.g("comms.by_app")
         self.assertNotIn("com.secretcorp.tool", apps)
@@ -134,8 +159,13 @@ class Kestrel(unittest.TestCase):
             r = urllib.request.urlopen(base + "/api/summary?t=" + token)
             self.assertEqual(r.status, 200)
             self.assertIn("default-src 'none'", r.headers["Content-Security-Policy"])
-            for path in ("/map", "/api/linkage", "/static/map.js"):
+            for path in ("/map", "/api/linkage", "/static/map.js", "/sheet", "/api/sheet", "/static/sheet.js"):
                 self.assertEqual(urllib.request.urlopen(base + path + "?t=" + token).status, 200)
+            r = urllib.request.urlopen(base + "/export/stores.csv?t=" + token)
+            self.assertIn("attachment", r.headers["Content-Disposition"])
+            self.assertIn("text/csv", r.headers["Content-Type"])
+            with self.assertRaises(urllib.error.HTTPError):
+                urllib.request.urlopen(base + "/export/stores.csv")
             body = urllib.request.urlopen(base + "/api/linkage?t=" + token).read().decode()
             for s in make_fixture.SECRETS:
                 self.assertNotIn(s, body, s)

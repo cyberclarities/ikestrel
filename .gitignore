@@ -4,3 +4,5 @@ linkage_sample.json
 __pycache__/
 *.pyc
 .DS_Store
+sheet_sample.json
+stores_sample.csv

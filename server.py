@@ -24,7 +24,7 @@ from kestrel import collect, db, report  # noqa: E402
 from kestrel.version import VERSION  # noqa: E402
 
 PUBLIC = os.path.join(HERE, "public")
-STATIC = {"map.js": "text/javascript", "map.css": "text/css", "app.js": "text/javascript", "app.css": "text/css", "report.css": "text/css",
+STATIC = {"sheet.js": "text/javascript", "sheet.css": "text/css", "map.js": "text/javascript", "map.css": "text/css", "app.js": "text/javascript", "app.css": "text/css", "report.css": "text/css",
           "report.js": "text/javascript", "logo.svg": "image/svg+xml"}
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
        "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
@@ -99,6 +99,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 finally:
                     db.close()
                 return self._send(200, json.dumps(L), "application/json")
+            if u.path == "/api/sheet":
+                from kestrel import sheet
+                d = collect.run(watch)
+                return self._send(200, json.dumps({"columns": sheet.COLUMNS, "rows": sheet.rows(d),
+                                                   "generated": d["generated"], "mode": d["mode"],
+                                                   "gaps": d["gaps"]}), "application/json")
+            if u.path == "/export/stores.csv":
+                from kestrel import sheet
+                body = sheet.to_csv(sheet.rows(collect.run(watch))).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition", 'attachment; filename="ikestrel-stores.csv"')
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Content-Security-Policy", CSP)
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            if u.path == "/sheet":
+                with open(os.path.join(PUBLIC, "sheet.html"), "rb") as fh:
+                    return self._send(200, fh.read(), cookie=cookie)
             if u.path == "/map":
                 with open(os.path.join(PUBLIC, "map.html"), "rb") as fh:
                     return self._send(200, fh.read(), cookie=cookie)

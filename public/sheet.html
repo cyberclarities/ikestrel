@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iKestrel store sheet</title><link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/sheet.css"></head>
+<body>
+<header class="wide"><h1>Store sheet</h1>
+<p>Every IntelligencePlatform store in one table: what it holds, how it joins, and what it can give away. Counts only; example rows are invented.</p>
+<p><a href="/">Findings</a> · <a href="/map">Connection map</a></p></header>
+<main class="wide">
+<div class="toolbar">
+  <label>Search <input id="q" type="search" placeholder="store, group, text"></label>
+  <label>Group <select id="group"><option value="">All</option></select></label>
+  <label>Sensitivity <select id="sens"><option value="">All</option><option>High</option><option>Medium</option><option>Low</option></select></label>
+  <label><input type="checkbox" id="text"> Show risk text</label>
+  <label><input type="checkbox" id="ex"> Show example rows</label>
+  <a id="csv" class="button" href="/export/stores.csv">Download CSV</a>
+  <span id="count" class="meta"></span>
+</div>
+<p id="meta" class="meta">Reading the stores…</p>
+<div class="sheetwrap"><table id="sheet" class="hide-text hide-ex"><thead></thead><tbody></tbody></table></div>
+</main>
+<script src="/static/sheet.js"></script>
+</body></html>
