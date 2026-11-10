@@ -1,0 +1,5 @@
+watchlist.txt
+docs/schema_snapshot.json
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,8 @@
+body { font:12pt/1.5 Georgia, serif; color:#1d1d1b; background:#fff; max-width:900px; margin:24px auto; padding:0 20px; }
+h1 { font:600 22pt -apple-system, sans-serif; } h2 { font:600 15pt -apple-system, sans-serif; border-bottom:1px solid #ccc; margin-top:28px; }
+h3, h4 { font:600 12pt -apple-system, sans-serif; } .meta { color:#5f5e5a; }
+.finding { border-left:3px solid #888; padding-left:12px; margin:14px 0; page-break-inside:avoid; }
+.sev { font:600 9pt -apple-system, sans-serif; text-transform:uppercase; border:1px solid #888; padding:0 5px; margin-right:4px; }
+table { border-collapse:collapse; width:100%; font:9pt -apple-system, sans-serif; } th, td { border-bottom:1px solid #ddd; padding:3px 6px; text-align:left; vertical-align:top; word-break:break-all; }
+pre { background:#f4f3ee; padding:8px; white-space:pre-wrap; font-size:9pt; } code { font-size:9pt; }
+.print { position:fixed; top:12px; right:12px; } @media print { .print { display:none; } }

@@ -1,0 +1,4 @@
+# One term per line. Reports count how many people's handles contain each term.
+# What matched is never shown. Copy this file to watchlist.txt (git-ignored).
+example.org
+example-team

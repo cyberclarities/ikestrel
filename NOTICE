@@ -1,0 +1,9 @@
+iKestrel
+Copyright 2026 Ted Mecimore
+
+iKestrel is a new codebase. Its design follows iOwl and iKnow
+(https://github.com/8rank/iKnow, by the Eighth Rank), both licensed under the
+Apache License, Version 2.0: local only, read-only on every handle, a fresh
+token at every start, counts-only reports, and "not measured is not zero".
+No code from either project is copied here. The credit is for the design and
+for the forensic groundwork that made it possible.
