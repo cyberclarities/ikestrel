@@ -1,9 +1,21 @@
 iKestrel
 Copyright 2026 Ted Mecimore
 
-iKestrel is a new codebase. Its design follows iOwl and iKnow
-(https://github.com/8rank/iKnow, by the Eighth Rank), both licensed under the
-Apache License, Version 2.0: local only, read-only on every handle, a fresh
-token at every start, counts-only reports, and "not measured is not zero".
-No code from either project is copied here. The credit is for the design and
-for the forensic groundwork that made it possible.
+iKestrel follows the design of iOwl and of iKnow (https://github.com/8rank/iKnow,
+by the Eighth Rank), both licensed under the Apache License, Version 2.0: local
+only, read-only on every handle, a fresh token at every start, counts-only
+reports, and "not measured is not zero".
+
+Third-party code included:
+
+  public/force.js
+    The force-directed graph that draws the spider map. Copied unmodified from
+    iOwl (public/js/force.js), which carries it from iKnow. Licensed under the
+    Apache License, Version 2.0.
+
+  public/web.css, the rules for .force-* classes
+    Adapted from iOwl's public/css/app.css. Licensed under the Apache License,
+    Version 2.0. Changes: colour tokens mapped onto iKestrel's palette, and the
+    expanded panel widened to 360px.
+
+Everything else in this repository is iKestrel's own code.

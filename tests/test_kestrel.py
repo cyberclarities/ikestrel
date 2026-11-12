@@ -149,6 +149,34 @@ class Kestrel(unittest.TestCase):
         for s in ("Zebulon Quartermain", "Juniper Ashgrove", "Hidden Clinic WiFi", "+15550100777", "77 Fictional Lane"):
             self.assertNotIn(s, out, s)
 
+    def test_spider_map(self):
+        from kestrel import web
+        db.begin()
+        try:
+            W = web.build(real=False)
+            safe = json.dumps(W)
+            for s in make_fixture.SECRETS + ["DEV-A"]:
+                self.assertNotIn(s, safe, s)
+            by = {n["label"]: n for n in W["nodes"]}
+            self.assertEqual(sorted(by), ["Employer A", "Person 1", "Person 2", "You"])
+            self.assertEqual(by["Person 1"]["role"], "friend")    # friend 0.9, and the one with messages ranks first
+            self.assertEqual(by["Person 2"]["role"], "partner")   # partner 0.7
+            m = [l for l in W["links"] if l["kind"] == "messages"]
+            self.assertEqual(len(m), 1)
+            self.assertEqual(m[0]["count"], 4)
+            self.assertIn("3 you sent, 1 you received", m[0]["tip"])
+            self.assertEqual(sorted(l["kind"] for l in W["links"]), ["employer", "messages", "scored", "scored"])
+            self.assertIsNone(by["Person 1"]["profile"])
+            R = web.build(real=True)
+            names = {n["label"] for n in R["nodes"]}
+            self.assertIn("Zebulon Quartermain", names)
+            z = [n for n in R["nodes"] if n["label"] == "Zebulon Quartermain"][0]
+            self.assertEqual(z["profile"], "1")
+            self.assertTrue(any("Zebulon Quartermain" in s for s in z["story"]))
+            self.assertEqual(web._cap("finley Kestrow"), "Finley Kestrow")
+        finally:
+            db.close()
+
     def test_unknown_app_is_withheld(self):
         apps = self.g("comms.by_app")
         self.assertNotIn("com.secretcorp.tool", apps)
@@ -202,7 +230,8 @@ class Kestrel(unittest.TestCase):
             self.assertIn("text/csv", r.headers["Content-Type"])
             with self.assertRaises(urllib.error.HTTPError):
                 urllib.request.urlopen(base + "/export/stores.csv")
-            for path in ("/person", "/timeline", "/browse", "/static/reveal.js", "/static/person.js"):
+            for path in ("/person", "/timeline", "/browse", "/static/reveal.js", "/static/person.js",
+                         "/web", "/static/web.js", "/static/force.js"):
                 self.assertEqual(urllib.request.urlopen(base + path + "?t=" + token).status, 200)
             with self.assertRaises(urllib.error.HTTPError) as e:
                 urllib.request.urlopen(base + "/api/reveal/people?t=" + token)   # no reveal header
@@ -212,6 +241,12 @@ class Kestrel(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError) as e:
                 urllib.request.urlopen(urllib.request.Request(base + "/api/reveal/people", headers={"X-Kestrel-Reveal": "1"}))
             self.assertEqual(e.exception.code, 403)                                # header without token
+            safe = urllib.request.urlopen(base + "/api/web?t=" + token).read().decode()
+            for s in make_fixture.SECRETS:
+                self.assertNotIn(s, safe, s)
+            with self.assertRaises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(base + "/api/reveal/web?t=" + token)        # real names need the header
+            self.assertEqual(e.exception.code, 403)
             body = urllib.request.urlopen(base + "/api/linkage?t=" + token).read().decode()
             for s in make_fixture.SECRETS:
                 self.assertNotIn(s, body, s)

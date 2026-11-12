@@ -11,7 +11,7 @@
   lab.appendChild(cb); lab.appendChild(document.createTextNode(" Show real values"));
   const warn = el("span", "Real values are on. Anyone who can see this screen can see them. They never go into reports or the CSV.", "revealwarn");
   const nav = el("nav", null, "revealnav");
-  [["/", "Findings"], ["/map", "Map"], ["/sheet", "Sheet"], ["/person", "People"], ["/timeline", "Timeline"], ["/browse", "Browse stores"]]
+  [["/", "Findings"], ["/web", "Spider map"], ["/map", "Map"], ["/sheet", "Sheet"], ["/person", "People"], ["/timeline", "Timeline"], ["/browse", "Browse stores"]]
     .forEach(([h, t]) => { const a = el("a", t); a.href = h; if (location.pathname === h) a.className = "here"; nav.appendChild(a); });
   bar.appendChild(nav); bar.appendChild(lab); bar.appendChild(warn);
   function paint() { document.body.classList.toggle("reveal-on", on); warn.hidden = !on; }

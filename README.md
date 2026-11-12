@@ -81,6 +81,34 @@ Click a store for what it holds and every join it has. Click a line for the over
 of each side. Drag stores to rearrange them. Toggle keys to see one join at a time. The same data
 is in a table under the map, and in section 3a of the technical report with its SQL.
 
+## The spider map
+
+Open **Spider map** for the view iOwl opens with: you in the middle, and everyone your Mac links to
+you around you. It is built from all the stores, not just the graph, so the lines say why each
+person is there:
+
+| Line | What it means |
+|---|---|
+| Blue | They're in your message and call history, synced from your phone. Darker means more. |
+| Wide orange dashed band | The Mac scored a relationship: family, partner, friend, coworker. You didn't enter it. |
+| Wide red band | iCloud Family Sharing |
+| Wide green band | The Mac flags a shared home address |
+| Pink dotted | You marked them a favorite, an emergency contact, or gave them a label |
+| Yellow | Works at, per the graph, out to an employer circle |
+
+Circle colour says what they are to you, by the same rules; circle size is how many stores on
+this Mac hold that person. Click anyone and the panel says in plain words what the Mac holds:
+how many messages you sent and received and in which apps, what it scored them as, whether it
+holds an address, an employer, a birthday or a face, and which stores hold them.
+
+It works in both modes. With real values off, people are "Person 1", "Person 2" in order of how
+much the Mac holds on them, employers are "Employer A", and nothing personal leaves the server,
+so it is safe to walk someone through on a shared screen. Turn real values on and the same map
+fills in names, addresses, employers and the names Siri listens for, with a link to each
+person's full profile.
+
+The drawing is iOwl's `force.js`, used unchanged under the Apache License 2.0. See NOTICE.
+
 ## Real values
 
 Everything above is counts only. Turn on **Show real values** in the bar at the top of any page

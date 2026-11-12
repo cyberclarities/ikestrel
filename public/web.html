@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iKestrel spider map</title>
+<link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/reveal.css"><link rel="stylesheet" href="/static/web.css"></head>
+<body>
+<header class="wide"><h1>Spider map</h1>
+<p id="headline" class="lead">Reading the stores…</p>
+<p id="mode" class="meta"></p></header>
+<main class="wide">
+<div class="toolbar">
+  <label>Show <select id="scope">
+    <option value="linked">Everyone the Mac links to you</option>
+    <option value="talk">Only people in your message and call history</option>
+    <option value="all">Everyone the Mac knows</option>
+  </select></label>
+  <label>Up to <select id="limit"><option>40</option><option selected>80</option><option>150</option><option>300</option></select> people</label>
+  <span id="count" class="meta"></span>
+</div>
+<div class="pills" id="kinds" aria-label="Kinds of line to draw"></div>
+<div class="legend" id="roles" aria-label="What each colour means"></div>
+<div class="web-split" id="split">
+  <div class="web-graph" id="graph"></div>
+  <aside class="web-panel" id="panel" aria-live="polite"></aside>
+</div>
+<p class="meta foot">Drag a circle to pin it, double-click to let go. Scroll with ⌘ or Ctrl to zoom; the corner buttons zoom, re-fit and fill the window.
+Circle size is how many stores on this Mac hold that person. The graph drawing is iOwl's <code>force.js</code>, used under the Apache License 2.0.</p>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+<script src="/static/reveal.js"></script>
+<script type="module" src="/static/web.js"></script>
+</body></html>
