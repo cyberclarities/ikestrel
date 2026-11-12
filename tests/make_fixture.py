@@ -43,7 +43,7 @@ def build(root):
 
     # siri remembers: 5 interactions, 4 from another device; 3 private-messenger sends
     r = _db(root, "Artifacts/siri/remembers/view.db",
-            "create table interactions(rowid INTEGER PRIMARY KEY, type TEXT, bundleId TEXT, startDate DOUBLE, remoteDeviceId TEXT, durationSeconds DOUBLE DEFAULT 0);"
+            "create table interactions(rowid INTEGER PRIMARY KEY, type TEXT, bundleId TEXT, startDate DOUBLE, remoteDeviceId TEXT, durationSeconds DOUBLE DEFAULT 0, direction INTEGER DEFAULT 0);"
             "create table entities(rowid INTEGER PRIMARY KEY, id TEXT, type TEXT, fields TEXT);"
             "create table interactionEntities(interactionRowid INTEGER, entityRowid INTEGER, parameter TEXT);")
     ints = [(1, "INSendMessageIntent", "ph.telegra.Telegraph", 800000000, "DEV-A"),
@@ -51,8 +51,11 @@ def build(root):
             (3, "INSendMessageIntent", "ph.telegra.Telegraph", 800000200, "DEV-A"),
             (4, "INStartCallIntent", "com.secretcorp.tool", 800000300, "DEV-A"),
             (5, "WeatherIntent", "com.apple.weather", 800000400, ""),
-            (6, "INSendMessageIntent", "com.apple.MobileSMS", 800000500, "DEV-A")]
+            (6, "INSendMessageIntent", "com.apple.MobileSMS", 800000500, "DEV-A"),
+            (7, "INStartCallIntent", "com.apple.InCallService", 800000600, "DEV-A")]
     r.executemany("insert into interactions (rowid, type, bundleId, startDate, remoteDeviceId) values (?,?,?,?,?)", ints)
+    # direction codes as real stores use them: the sender test reads 1 as incoming, 2 as outgoing
+    r.execute("update interactions set direction = case when rowid in (1,2,3) then 2 when rowid in (6,7) then 1 else 0 end")
     r.executemany("insert into entities values (?,?,?,?)", [
         (1, "p1", "Person", json.dumps({"name": "Zebulon Quartermain"})),
         (2, "p2", "Person", json.dumps({"name": "Juniper Ashgrove"})),
@@ -62,7 +65,7 @@ def build(root):
     r.executemany("insert into interactionEntities values (?,?,?)",
                   [(1, 1, "recipients"), (2, 1, "recipients"), (3, 1, "recipients"), (4, 2, "recipients"),
                    (1, 4, "recipientHandles"), (2, 4, "recipientHandles"), (3, 4, "recipientHandles"),
-                   (6, 4, "senderHandle")])
+                   (6, 4, "senderHandle"), (7, 4, "contactHandles")])
     r.commit()
 
     # internal views: handles, wifi

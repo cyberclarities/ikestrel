@@ -43,9 +43,9 @@ class Kestrel(unittest.TestCase):
         self.assertEqual(self.g("graph.classes"), {"people": 2, "organizations": 1, "apps": 1})
         self.assertEqual(self.g("graph.by_source")["Photos"], 2)
         self.assertEqual(self.v("graph.addresses"), 1)
-        self.assertEqual(self.v("comms.interactions"), 6)
+        self.assertEqual(self.v("comms.interactions"), 7)
         self.assertEqual(self.v("comms.remote_devices"), 1)
-        self.assertEqual(self.g("comms.by_device"), {"other device 1": 5, "this Mac": 1})
+        self.assertEqual(self.g("comms.by_device"), {"other device 1": 6, "this Mac": 1})
         self.assertEqual(self.g("comms.by_category")["Private messenger"], 3)
         self.assertEqual(self.v("comms.top_share"), 75)
         self.assertEqual(self.v("comms.message_bodies"), 0)
@@ -126,8 +126,8 @@ class Kestrel(unittest.TestCase):
             self.assertIn("+15550100777", P["handles"])
             self.assertEqual(P["relationship_scores"].get("friend"), 0.9)
             c = P["communications"]
-            self.assertEqual((c["total"], c["sent"], c["received"], c["group"]), (4, 3, 1, 0))
-            self.assertEqual(c["by_app"], {"ph.telegra.Telegraph": 3, "com.apple.MobileSMS": 1})
+            self.assertEqual((c["total"], c["sent"], c["received"], c["group"]), (5, 3, 1, 0))
+            self.assertEqual(c["by_app"], {"ph.telegra.Telegraph": 3, "com.apple.MobileSMS": 1, "com.apple.InCallService": 1})
             self.assertEqual([m["name"] for m in reveal.chain("C1", 0)], ["Zebulon Quartermain"])
             self.assertIsNone(reveal.chain("C1", 99))
             T = reveal.timeline(limit=50)
@@ -163,7 +163,7 @@ class Kestrel(unittest.TestCase):
             self.assertEqual(by["Person 2"]["role"], "partner")   # partner 0.7
             m = [l for l in W["links"] if l["kind"] == "messages"]
             self.assertEqual(len(m), 1)
-            self.assertEqual(m[0]["count"], 4)
+            self.assertEqual(m[0]["count"], 5)
             self.assertIn("3 you sent, 1 you received", m[0]["tip"])
             self.assertEqual(sorted(l["kind"] for l in W["links"]), ["employer", "messages", "scored", "scored"])
             self.assertIsNone(by["Person 1"]["profile"])
@@ -174,6 +174,34 @@ class Kestrel(unittest.TestCase):
             self.assertEqual(z["profile"], "1")
             self.assertTrue(any("Zebulon Quartermain" in s for s in z["story"]))
             self.assertEqual(web._cap("finley Kestrow"), "Finley Kestrow")
+        finally:
+            db.close()
+
+    def test_messaging(self):
+        from kestrel import messaging
+        db.begin()
+        try:
+            M = messaging.build(real=False)
+            A = {a["key"]: a for a in M["apps"]}
+            tg = A["telegram"]
+            self.assertEqual((tg["interactions"], tg["sent"], tg["received"], tg["messages"]), (3, 3, 0, 3))
+            self.assertEqual(tg["named_on_this_mac"], 1)
+            self.assertEqual((A["messages"]["received"], A["messages"]["sent"]), (1, 0))
+            ph = A["phone"]                                    # a call names its party in "contacts":
+            self.assertEqual((ph["calls"], ph["received"], ph["sent"]), (1, 1, 0))   # direction column decides
+            for k in ("signal", "whatsapp", "messenger"):
+                self.assertEqual(A[k]["status"], "no trace")
+                self.assertIn("cannot tell which", " ".join(A[k]["story"]))
+            self.assertIn("iMessage and SMS", A["messages"]["note"])
+            self.assertNotIn("com.secretcorp.tool", json.dumps(M))   # not a messaging app, never listed
+            safe = json.dumps(M)
+            for s in make_fixture.SECRETS + ["DEV-A"]:
+                self.assertNotIn(s, safe, s)
+            self.assertIn("Telegram 3", M["headline"])
+            self.assertIn("No trace of Signal, WhatsApp", M["headline"])
+            R = {a["key"]: a for a in messaging.build(real=True)["apps"]}
+            self.assertEqual(R["telegram"]["top_people"][0]["name"], "Zebulon Quartermain")
+            self.assertEqual(R["telegram"]["top_people"][0]["sent"], 3)
         finally:
             db.close()
 
@@ -231,7 +259,7 @@ class Kestrel(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError):
                 urllib.request.urlopen(base + "/export/stores.csv")
             for path in ("/person", "/timeline", "/browse", "/static/reveal.js", "/static/person.js",
-                         "/web", "/static/web.js", "/static/force.js"):
+                         "/web", "/static/web.js", "/static/force.js", "/messaging", "/static/messaging.js"):
                 self.assertEqual(urllib.request.urlopen(base + path + "?t=" + token).status, 200)
             with self.assertRaises(urllib.error.HTTPError) as e:
                 urllib.request.urlopen(base + "/api/reveal/people?t=" + token)   # no reveal header
@@ -244,6 +272,12 @@ class Kestrel(unittest.TestCase):
             safe = urllib.request.urlopen(base + "/api/web?t=" + token).read().decode()
             for s in make_fixture.SECRETS:
                 self.assertNotIn(s, safe, s)
+            safe = urllib.request.urlopen(base + "/api/messaging?t=" + token).read().decode()
+            for s in make_fixture.SECRETS:
+                self.assertNotIn(s, safe, s)
+            with self.assertRaises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(base + "/api/reveal/messaging?t=" + token)
+            self.assertEqual(e.exception.code, 403)
             with self.assertRaises(urllib.error.HTTPError) as e:
                 urllib.request.urlopen(base + "/api/reveal/web?t=" + token)        # real names need the header
             self.assertEqual(e.exception.code, 403)

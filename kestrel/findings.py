@@ -44,10 +44,19 @@ def evaluate(M, live_checks=None, watch=None, linkage=None):
     # 2. private messenger metadata
     cat = _g(M, "comms.by_category")
     if cat is not None and (cat.get("Private messenger") or 0) > 0:
+        from . import messaging
+        prod = {}
+        for b, n in (_g(M, "comms.by_app") or {}).items():
+            k = messaging.app_of(b)
+            if k and messaging.APPS[[a[0] for a in messaging.APPS].index(k)][2] == messaging.PRIVATE:
+                name = messaging.APPS[[a[0] for a in messaging.APPS].index(k)][1]
+                prod[name] = prod.get(name, 0) + (n or 0)
+        named = ", ".join("%s %d" % kv for kv in sorted(prod.items(), key=lambda kv: -kv[1]))
         add("K-02", "High", "Metadata from private messengers is logged by the operating system",
             ["comms.by_category", "comms.by_app"],
-            "%d interactions come from apps people choose for privacy. The message text is not stored, "
-            "but the pattern of who and when is, outside that app's own protections." % cat["Private messenger"],
+            "%d interactions come from apps people choose for privacy%s. The message text is not stored, "
+            "but the pattern of who and when is, outside that app's own protections. The Messaging page "
+            "breaks it down by app." % (cat["Private messenger"], " (" + named + ")" if named else ""),
             "Brief staff who rely on a private messenger for sensitive contacts that the device keeps its own "
             "record. Review that app's Siri and Suggestions setting on the phone.")
 

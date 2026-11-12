@@ -109,6 +109,28 @@ person's full profile.
 
 The drawing is iOwl's `force.js`, used unchanged under the Apache License 2.0. See NOTICE.
 
+## Messaging apps
+
+Open **Messaging** for one card per messaging app: Signal, WhatsApp, Messages, Telegram, Phone,
+FaceTime and Facebook Messenger always, and Threema, Wire, Element, Session, SimpleX, Viber, LINE,
+WeChat, KakaoTalk, Facebook, Instagram, Snapchat, Discord, X, LinkedIn, Teams, Skype, Slack, Zoom,
+Webex and Google Chat whenever they leave a trace. Each card says, from every store that holds it:
+
+- whether the app is installed on this Mac;
+- how many interactions Siri's history holds for it, messages and calls, outgoing and incoming,
+  from which devices, and over what dates;
+- how much of it is in group chats, and that Siri keeps each group's name;
+- how many people it names, and how many of those resolve to a named person on this Mac;
+- how many contact-and-app pairings Siri's resolver holds, its record of which app you use for whom.
+
+An app with nothing gets a plain "no trace" card rather than a blank, with what that can and can't
+mean. Messages covers iMessage and SMS together; Siri's history doesn't say which, and the card says
+so. With real values on, each card adds the people, most first, and the group chats by name.
+
+Calls name the other party in a `contacts` slot rather than as sender or recipient, so for those rows
+the direction column decides. Its meaning is measured with the same sender test iOwl uses, not taken
+from Apple's documentation.
+
 ## Real values
 
 Everything above is counts only. Turn on **Show real values** in the bar at the top of any page

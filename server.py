@@ -24,7 +24,7 @@ from kestrel import collect, db, report  # noqa: E402
 from kestrel.version import VERSION  # noqa: E402
 
 PUBLIC = os.path.join(HERE, "public")
-STATIC = {"force.js": "text/javascript", "web.js": "text/javascript", "web.css": "text/css",
+STATIC = {"messaging.js": "text/javascript", "messaging.css": "text/css", "force.js": "text/javascript", "web.js": "text/javascript", "web.css": "text/css",
           "reveal.js": "text/javascript", "reveal.css": "text/css", "person.js": "text/javascript",
           "browse.js": "text/javascript", "timeline.js": "text/javascript", "sheet.js": "text/javascript", "sheet.css": "text/css", "map.js": "text/javascript", "map.css": "text/css", "app.js": "text/javascript", "app.css": "text/css", "report.css": "text/css",
           "report.js": "text/javascript", "logo.svg": "image/svg+xml"}
@@ -103,6 +103,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._send(200, json.dumps(L), "application/json")
             if u.path.startswith("/api/reveal/"):
                 return self._reveal(u.path[len("/api/reveal/"):], q)
+            if u.path == "/api/messaging":
+                from kestrel import messaging
+                db.begin()
+                try:
+                    W = messaging.build(real=False)
+                    W["gaps"] = db.gaps()
+                finally:
+                    db.close()
+                return self._send(200, json.dumps(W), "application/json")
             if u.path == "/api/web":
                 from kestrel import web
                 db.begin()
@@ -113,7 +122,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 finally:
                     db.close()
                 return self._send(200, json.dumps(W), "application/json")
-            if u.path in ("/person", "/browse", "/timeline", "/web"):
+            if u.path in ("/person", "/browse", "/timeline", "/web", "/messaging"):
                 with open(os.path.join(PUBLIC, u.path[1:] + ".html"), "rb") as fh:
                     return self._send(200, fh.read(), cookie=cookie)
             if u.path == "/api/sheet":
@@ -164,6 +173,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 out = reveal.person(arg("id", ""))
             elif name == "chain":
                 out = reveal.chain(arg("id", ""), int(arg("step", "0")))
+            elif name == "messaging":
+                from kestrel import messaging
+                out = messaging.build(real=True)
             elif name == "web":
                 from kestrel import web
                 out = web.build(real=True, scope=arg("scope", "linked"), limit=max(10, min(600, int(arg("limit", "80")))))
